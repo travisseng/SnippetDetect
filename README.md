@@ -29,8 +29,8 @@ This tool detects known video snippets within a given video file or live stream.
    python detect_clips.py \
      --source input_video.mp4 \
      --clips snippet1.mp4 snippet2_frames \
-     --match_threshold 15 \
-     --time_window 5.0 \
+     --match_threshold 5 \
+     --time_window 2.0 \
      --hash_method phash \
      --notify_url http://yourserver.com/api/detect
    ```
