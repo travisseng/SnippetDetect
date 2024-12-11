@@ -75,7 +75,3 @@ and send a POST request to `http://localhost:5000/detection-event` with:
   ```
 - **Test**:
   Just run the script with some test videos.
-
-## License
-
-This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
