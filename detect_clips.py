@@ -28,8 +28,9 @@ def health_check(interval):
 
         if elapsed_time > interval * 2:
             print(f"[ERROR] No frame processed for {elapsed_time:.1f} seconds! Something might be stuck.")
+            sys.exit(1)
         else:
-            print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Health check: Video processing is running fine.")
+            print(f"Ping")
 
 
 def extract_keyframes_from_video(snippet_video_path, output_dir):
@@ -246,7 +247,7 @@ def main():
     parser.add_argument("--hash_method", type=str, default="phash", choices=["phash","average","marr","radial"], help="Image hash method.")
     parser.add_argument("--notify_url", type=str, help="If provided, POST detection results to this URL.")
     parser.add_argument("--display", action="store_true", help="Display stream frame")
-    parser.add_argument("--use_amqp", action="store_true", help="Use amqp to send message")	
+    parser.add_argument("--amqp_url", default=None, type=str, help="AMQP URL in the format amqp://username:password@host")
     parser.add_argument("--health_check_interval", type=int, default=15,
                     help="Print a health check message every X seconds (set 0 to disable).")
     parser.add_argument("-v", "--verbose", help="increase output verbosity",
@@ -267,8 +268,8 @@ def main():
     elif args.hash_method == "radial":
         hash_method = cv2.img_hash.RadialVarianceHash_create()
 
-    if args.use_amqp:
-        connection = pika.BlockingConnection(pika.ConnectionParameters('localhost')) #TODO add parameters for connection
+    if args.amqp_url:
+        connection = pika.BlockingConnection(pika.URLParameters(args.amqp_url)) #TODO add parameters for connection
         channel = connection.channel()
     # Load all snippets
     snippets = {}
