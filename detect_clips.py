@@ -335,7 +335,7 @@ def main():
                     print(f"[{snippet_name}] Detected snippet! Start: {start_time:.2f}s, End: {end_time:.2f}s, Timestamp: {start_timestamp}, End Timestamp: {end_timestamp}")
                     if args.notify_url:
                         notify_server(args.notify_url, snippet_name, start_time, end_time)
-                    if args.use_amqp:
+                    if args.amqp_url:
                         notify_amqp_server(channel, snippet_name, start_time, end_time, 'snippets')
             
             # display stream frame
