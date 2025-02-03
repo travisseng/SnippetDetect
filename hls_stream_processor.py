@@ -1,3 +1,4 @@
+import os.path
 import requests
 import av
 import time
@@ -36,59 +37,71 @@ class HLSStreamProcessor:
         self.start()
 
     def fetch_playlist(self):
-        headers = {}
-        if self.etag:
-            headers['If-None-Match'] = self.etag
-        if self.last_modified:
-            headers['If-Modified-Since'] = self.last_modified
+        if self.hls_url.startswith('http://') or self.hls_url.startswith('https://'):
+            headers = {}
+            if self.etag:
+                headers['If-None-Match'] = self.etag
+            if self.last_modified:
+                headers['If-Modified-Since'] = self.last_modified
 
-        try:
-            response = requests.get(self.hls_url, headers=headers)
-        except requests.RequestException as e:
-            logging.error(f"Error fetching playlist: {e}")
-            return None
-        if response.status_code == 200:
-            self.etag = response.headers.get('ETag')
-            self.last_modified = response.headers.get('Last-Modified')
-            playlist = m3u8.loads(response.text)
+            try:
+                response = requests.get(self.hls_url, headers=headers)
+            except requests.RequestException as e:
+                logging.error(f"Error fetching playlist: {e}")
+                return None
+            if response.status_code == 200:
+                self.etag = response.headers.get('ETag')
+                self.last_modified = response.headers.get('Last-Modified')
+                playlist = m3u8.loads(response.text)
 
-            # If it's a master playlist, handle or warn
-            if playlist.is_variant:
-                logging.warning("Received a master playlist. You may need to select a specific variant.")
-
-            # CMAF segment_map check
-            if playlist.segment_map:
-                base_uri = self.hls_url.rsplit('/', 1)[0] + '/'
-                playlist.base_uri = base_uri
-                # If there's an init segment
-                if len(playlist.segment_map) > 0:
-                    playlist.segment_map[0].base_uri = base_uri
-                self.playlist_base_uri = base_uri
-
-            return playlist
-
-        elif response.status_code == 304:
-            # Not modified
-            return None
+            elif response.status_code == 304:
+                # Not modified
+                return None
+            else:
+                raise Exception(f"Failed to fetch playlist: HTTP {response.status_code}")
         else:
-            raise Exception(f"Failed to fetch playlist: HTTP {response.status_code}")
+            with open(self.hls_url) as f:
+                playlist = m3u8.loads(f.read())
+                self.last_modified = os.path.getmtime(self.hls_url)
+
+        # If it's a master playlist, handle or warn
+        if playlist.is_variant:
+            logging.warning("Received a master playlist. You may need to select a specific variant.")
+
+        # CMAF segment_map check
+        if playlist.segment_map:
+            base_uri = self.hls_url.rsplit('/', 1)[0] + '/'
+            playlist.base_uri = base_uri
+            # If there's an init segment
+            if len(playlist.segment_map) > 0:
+                playlist.segment_map[0].base_uri = base_uri
+            self.playlist_base_uri = base_uri
+
+        return playlist
 
     def download_url(self, url, max_retries=3, timeout=5):
         """
         Simple helper to download URL with retries.
         """
-        for attempt in range(max_retries):
-            try:
-                resp = requests.get(url, timeout=timeout)
-                if resp.status_code == 200:
-                    return resp.content
-                else:
-                    logging.error(f"Non-200 status code ({resp.status_code}) for URL: {url}")
-            except requests.RequestException as e:
-                logging.error(f"Download error for {url} [Attempt {attempt+1}]: {e}")
-            time.sleep(0.5)
+        if url.startswith('http://') or url.startswith('https://'):
+            for attempt in range(max_retries):
+                try:
+                    resp = requests.get(url, timeout=timeout)
+                    if resp.status_code == 200:
+                        return resp.content
+                    else:
+                        logging.error(f"Non-200 status code ({resp.status_code}) for URL: {url}")
+                except requests.RequestException as e:
+                    logging.error(f"Download error for {url} [Attempt {attempt+1}]: {e}")
+                time.sleep(0.5)
 
-        return None
+            return None
+
+        else:
+            with open(url, 'rb') as f:
+                return f.read()
+
+
 
     def get_combined_segment(self, init_url, chunk_url):
         """
