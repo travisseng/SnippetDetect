@@ -269,7 +269,9 @@ def main():
         hash_method = cv2.img_hash.RadialVarianceHash_create()
 
     if args.amqp_url:
-        connection = pika.BlockingConnection(pika.URLParameters(args.amqp_url)) #TODO add parameters for connection
+        params = pika.URLParameters(args.amqp_url)
+        params.heartbeat = 600
+        connection = pika.BlockingConnection(params) #TODO add parameters for connection
         channel = connection.channel()
     # Load all snippets
     snippets = {}
