@@ -19,6 +19,21 @@ from hls_stream_processor import HLSStreamProcessor
 # Shared variable for last successful read time
 last_successful_read = time.time()
 stop_flag = False  # Used to properly stop threads on exit
+connection = None
+connection_lock = threading.Lock()
+        
+def heartbeat_scheduler():
+    """
+    Runs in a separate thread. Every 20 seconds (adjust as needed),
+    it schedules the heartbeat_callback on the connection's IOLoop thread.
+    """
+    while connection and connection.is_open:
+        # Schedule the heartbeat callback in a thread-safe manner.
+        with connection_lock:
+            # Process pending events nonblockingly (time_limit=0) so that heartbeats are sent.
+            connection.process_data_events(time_limit=0)
+        time.sleep(30) 
+
 
 def health_check(interval):
     """Health check that runs in a separate thread."""
@@ -233,7 +248,7 @@ def notify_amqp_server(channel, clip_name, start_time, end_time, queue_name):
                       body=json.dumps(data))
 
 def main():
-    global last_successful_read, stop_flag
+    global last_successful_read, stop_flag, connection
     parser = argparse.ArgumentParser(description="Detect multiple known snippets in a video or stream, extracting keyframes if needed.")
     parser.add_argument("--source", required=True, help="Video file path or stream URL (RTMP/HLS).")
     parser.add_argument("--clips", nargs='+', required=True, help="Paths to snippet directories or videos. If video is given, keyframes are extracted automatically.")
@@ -270,9 +285,10 @@ def main():
 
     if args.amqp_url:
         params = pika.URLParameters(args.amqp_url)
-        params.heartbeat = 600
         connection = pika.BlockingConnection(params) #TODO add parameters for connection
         channel = connection.channel()
+        heartbeat_thread = threading.Thread(target=heartbeat_scheduler, daemon=True)
+        heartbeat_thread.start()
     # Load all snippets
     snippets = {}
     for clip_path in args.clips:
@@ -314,6 +330,7 @@ def main():
             
             # Update current timestamp
             current_timestamp = datetime.now()
+            
             if is_hls:
                 
                 fps = frame["fps"] if "fps" in frame else 30
@@ -338,7 +355,9 @@ def main():
                     if args.notify_url:
                         notify_server(args.notify_url, snippet_name, start_time, end_time)
                     if args.amqp_url:
-                        notify_amqp_server(channel, snippet_name, start_time, end_time, 'snippets')
+                        with connection_lock:
+                            notify_amqp_server(channel, snippet_name, start_time, end_time, 'snippets')
+
             
             # display stream frame
             if args.display:
