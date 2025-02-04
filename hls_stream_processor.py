@@ -267,7 +267,7 @@ class HLSStreamProcessor:
                     }
                     frame_count += 1
 
-        except av.AVError as av_err:
+        except av.FFmpegError as av_err:
             logging.error(f"PyAV error decoding segment {chunk_url}: {av_err}")
         except Exception as e:
             logging.error(f"Unexpected error decoding {chunk_url}: {e}")
