@@ -104,7 +104,7 @@ def load_image_as_snippet(image_path, hash_method, match_threshold):
     return [h], [image_path]  # One hash, one "frame path" as a placeholder
 
 
-def load_or_extract_snippet(snippet_path, hash_method, match_threshold):
+def load_or_extract_snippet(snippet_path, hash_method, match_threshold, id):
     if os.path.isfile(snippet_path):
         ext = os.path.splitext(snippet_path)[1].lower()
         if ext in [".jpg", ".png", ".jpeg", ".bmp"]:  
@@ -113,7 +113,7 @@ def load_or_extract_snippet(snippet_path, hash_method, match_threshold):
         else:
             # It's a video file, proceed as usual
             base_name = os.path.splitext(os.path.basename(snippet_path))[0]
-            frames_dir = base_name + "_frames"
+            frames_dir = f"{base_name}_{id}_frames"
             if not os.path.exists(frames_dir) or len(glob.glob(frames_dir + "/*.jpg")) == 0:
                 extract_keyframes_from_video(snippet_path, frames_dir)
             return load_snippet_keyframes(frames_dir, hash_method, match_threshold)
@@ -300,8 +300,8 @@ def main():
         heartbeat_thread.start()
     # Load all snippets
     snippets = {}
-    for clip_path in args.clips:
-        known_hashes, frame_paths = load_or_extract_snippet(clip_path, hash_method, args.match_threshold)
+    for i, clip_path in enumerate(args.clips):
+        known_hashes, frame_paths = load_or_extract_snippet(clip_path, hash_method, args.match_threshold, id=args.ids[i])
         snippets[clip_path] = {
             'known_hashes': known_hashes,
             'current_keyframe_index': 0,
