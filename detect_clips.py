@@ -238,14 +238,13 @@ def notify_server(url, clip_name, start_time, end_time):
 
 def notify_amqp_server(channel, clip_name, start_time, end_time, queue_name):
     data = {
-        "clip_name": clip_name,
-        "start_time": start_time,
-        "end_time": end_time
+        "type": "clip_detected",
+        "clipName": clip_name,
+        "startTime": start_time,
+        "endTime": end_time,
+        "created": int(time.time()),
     }
-    channel.queue_declare(queue=queue_name)
-    channel.basic_publish(exchange='',
-                      routing_key=queue_name,
-                      body=json.dumps(data))
+    channel.basic_publish(exchange=queue_name, routing_key='', body=json.dumps(data))
 
 def main():
     global last_successful_read, stop_flag, connection
@@ -285,8 +284,11 @@ def main():
 
     if args.amqp_url:
         params = pika.URLParameters(args.amqp_url)
-        connection = pika.BlockingConnection(params) #TODO add parameters for connection
+        connection = pika.BlockingConnection(params)
         channel = connection.channel()
+
+        # Declare exchange on which we will send messages
+        channel.exchange_declare(exchange='ClipDetectedResponseQueue', exchange_type='fanout')
         heartbeat_thread = threading.Thread(target=heartbeat_scheduler, daemon=True)
         heartbeat_thread.start()
     # Load all snippets
@@ -356,7 +358,7 @@ def main():
                         notify_server(args.notify_url, snippet_name, start_time, end_time)
                     if args.amqp_url:
                         with connection_lock:
-                            notify_amqp_server(channel, snippet_name, start_time, end_time, 'snippets')
+                            notify_amqp_server(channel, snippet_name, start_time, end_time, 'ClipDetectedResponseQueue')
 
             
             # display stream frame
