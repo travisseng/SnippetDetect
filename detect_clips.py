@@ -224,7 +224,7 @@ def check_and_update_snippet(snippet, frame, current_timestamp, current_time, ha
 
 
 
-def notify_server(url, clip_name, start_time, end_time, id=None):
+def notify_server(url, clip_name, start_time, end_time, id=None, event_id=None):
     data = {
         "clip_name": clip_name,
         "start_time": start_time,
@@ -232,13 +232,15 @@ def notify_server(url, clip_name, start_time, end_time, id=None):
     }
     if id:
         data["libraryElementId"] = id
+    if event_id:
+        data["eventId"] = event_id
     try:
         response = requests.post(url, json=data)
         print(f"Notification sent to {url}, response status: {response.status_code}")
     except Exception as e:
         print(f"Failed to notify server at {url}: {e}")
 
-def notify_amqp_server(channel, clip_name, start_time, end_time, queue_name, id=None):
+def notify_amqp_server(channel, clip_name, start_time, end_time, queue_name, id=None, event_id=None):
     data = {
         "type": "clip_detected",
         "clipName": clip_name,
@@ -248,6 +250,8 @@ def notify_amqp_server(channel, clip_name, start_time, end_time, queue_name, id=
     }
     if id:
         data["libraryElementId"] = id
+    if event_id:
+        data["eventId"] = event_id
     channel.basic_publish(exchange=queue_name, routing_key='', body=json.dumps(data))
 
 def main():
@@ -255,7 +259,8 @@ def main():
     parser = argparse.ArgumentParser(description="Detect multiple known snippets in a video or stream, extracting keyframes if needed.")
     parser.add_argument("--source", required=True, help="Video file path or stream URL (RTMP/HLS).")
     parser.add_argument("--clips", nargs='+', required=True, help="Paths to snippet directories or videos. If video is given, keyframes are extracted automatically.")
-    parser.add_argument("--ids", nargs='+', help="IDs for each snippet, used for notifications.")
+    parser.add_argument("--ids", nargs='+', default=None, help="IDs for each snippet, used for notifications.")
+    parser.add_argument('--event_id', default=None, type=int, help="Event ID for notifications.")
     parser.add_argument("--match_threshold", type=int, default=5, help="Hamming distance threshold for frame matching.")
     parser.add_argument("--image_min_duration", type=float, default=1.0,
                     help="Minimum duration (in seconds) that a single image must be visible to be considered 'detected'.")
@@ -362,10 +367,10 @@ def main():
                 if detected:
                     print(f"[{snippet_name}] Detected snippet! Start: {start_time:.2f}s, End: {end_time:.2f}s, Timestamp: {start_timestamp}, End Timestamp: {end_timestamp}")
                     if args.notify_url:
-                        notify_server(args.notify_url, snippet_name, start_time, end_time, id=args.ids[i])
+                        notify_server(args.notify_url, snippet_name, start_time, end_time, id=args.ids[i], event_id=args.event_id)
                     if args.amqp_url:
                         with connection_lock:
-                            notify_amqp_server(channel, snippet_name, start_time, end_time, 'ClipDetectedResponseQueue', id=args.ids[i])
+                            notify_amqp_server(channel, snippet_name, start_time, end_time, 'ClipDetectedResponseQueue', id=args.ids[i], event_id=args.event_id)
 
             
             # display stream frame
