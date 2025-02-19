@@ -244,8 +244,8 @@ def notify_amqp_server(channel, clip_name, start_time, end_time, queue_name, id=
     data = {
         "type": "clip_detected",
         "clipName": clip_name,
-        "startTime": start_time,
-        "endTime": end_time,
+        "startTime": start_time.timestamp() * 1000,
+        "endTime": end_time.timestamp() * 1000,
         "created": int(time.time()),
     }
     if id:
@@ -370,7 +370,7 @@ def main():
                         notify_server(args.notify_url, snippet_name, start_time, end_time, id=args.ids[i], event_id=args.event_id)
                     if args.amqp_url:
                         with connection_lock:
-                            notify_amqp_server(channel, snippet_name, start_time, end_time, 'ClipDetectedResponseQueue', id=args.ids[i], event_id=args.event_id)
+                            notify_amqp_server(channel, snippet_name,start_timestamp, end_timestamp, 'ClipDetectedResponseQueue', id=args.ids[i], event_id=args.event_id)
 
             
             # display stream frame
