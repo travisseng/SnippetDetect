@@ -271,7 +271,7 @@ def main():
     parser.add_argument("--hash_method", type=str, default="phash", choices=["phash","average","marr","radial"], help="Image hash method.")
     parser.add_argument("--notify_url", type=str, help="If provided, POST detection results to this URL.")
     parser.add_argument("--display", action="store_true", help="Display stream frame")
-    parser.add_argument("--amqp_url", default=None, type=str, help="AMQP URL in the format amqp://username:password@host")
+    parser.add_argument("--amqp_urls", nargs='+', default=None, type=str, help="List of AMQP URLs in the format amqp://username:password@host")
     parser.add_argument("--health_check_interval", type=int, default=15,
                     help="Print a health check message every X seconds (set 0 to disable).")
     parser.add_argument("-v", "--verbose", help="increase output verbosity",
@@ -294,9 +294,9 @@ def main():
     elif args.hash_method == "radial":
         hash_method = cv2.img_hash.RadialVarianceHash_create()
 
-    if args.amqp_url:
-        params = pika.URLParameters(args.amqp_url)
-        connection = pika.BlockingConnection(params)
+    if args.amqp_urls:
+        params_list = [pika.URLParameters(url) for url in args.amqp_urls]
+        connection = pika.BlockingConnection(params_list)
         channel = connection.channel()
 
         # Declare exchange on which we will send messages
@@ -368,7 +368,7 @@ def main():
                     print(f"[{snippet_name}] Detected snippet! Start: {start_time:.2f}s, End: {end_time:.2f}s, Timestamp: {start_timestamp}, End Timestamp: {end_timestamp}")
                     if args.notify_url:
                         notify_server(args.notify_url, snippet_name, start_time, end_time, id=args.ids[i], event_id=args.event_id)
-                    if args.amqp_url:
+                    if args.amqp_urls:
                         with connection_lock:
                             notify_amqp_server(channel, snippet_name,start_timestamp, end_timestamp, 'ClipDetectedResponseQueue', id=args.ids[i], event_id=args.event_id)
 
